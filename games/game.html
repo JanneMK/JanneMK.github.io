@@ -319,15 +319,17 @@
         window.parent.postMessage(msg, "*");
       });
 
-      $(document).keydown(function(e){
-      if (e.keyCode==65)
-          myGamePiece.x += -10;
-      if (e.keyCode==68)
-          myGamePiece.x += 10;
-      if (e.keyCode==77)
-          shoot();
-      });
     });
+   </script>
+   <script>
+   document.addEventListener('keydown', function (e) {
+   if (e.keyCode==65)
+       myGamePiece.x += -10;
+   if (e.keyCode==68)
+       myGamePiece.x += 10;
+   if (e.keyCode==77)
+       shoot();
+   });
    </script>
    <body onload="startGame()">
       <br>
