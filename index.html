@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+   <head>
+      <title>Test Game</title>
+      <meta charset="utf-8"/>
+      <script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
+      <style>
+         canvas {
+         border:1px solid #d3d3d3;
+         background-color: #f1f1f1;
+         }
+      </style>
+   </head>
+   <script>
+      var myGamePiece = 0;
+      var myObstacles = [];
+      var myAmmunition = [];
+      var score = 0;
+      var coolDown = 0;
+
+      var myGamePieceSaved = 0;
+      var myObstaclesSaved = [];
+      var myAmmunitionSaved = [];
+      var scoreSaved = 0;
+
+      // settings
+
+      var gameWindowWidth = 400;
+      var gameWindowHigh = 600;
+
+      var myGameArea = {
+          canvas : document.createElement("canvas"),
+          start : function() {
+
+              var message =  {
+                messageType: "SETTING",
+                options: {
+                  "width": (gameWindowWidth+30),
+                  "height": (gameWindowHigh+90)
+                  }
+              };
+              window.parent.postMessage(message, "*");
+
+              this.canvas.width = gameWindowWidth;
+              this.canvas.height = gameWindowHigh;
+              this.context = this.canvas.getContext("2d");
+              document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+              this.frameNo = 0;
+              this.interval = setInterval(updateGameArea, 20);
+              },
+          clear : function() {
+              this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+          }
+      }
+
+      function startGame() {
+          myGamePiece = new component(15, 15, "red", 10, 600);
+          myScore = new component("30px", "Consolas", "black", 20, 40, "text");
+          myGameArea.start();
+      }
+
+      function component(width, height, color, x, y, type) {
+          this.width = width;
+          this.height = height;
+          this.color = color;
+          this.x = x;
+          this.y = y;
+          this.type = type;
+          this.score = 0;
+          this.update = function() {
+              ctx = myGameArea.context;
+              if (this.type == "text") {
+                  ctx.font = this.width + " " + this.height;
+                  ctx.fillStyle = this.color;
+                  ctx.fillText(this.text, this.x, this.y);
+              } else {
+                  ctx.fillStyle = this.color;
+                  ctx.fillRect(this.x, this.y, this.width, this.height);
+              }
+          }
+          this.newPos = function() {
+              this.hitBottom();
+          }
+          this.updateColor = function() {
+            this.color = 'black';
+          }
+          this.hitBottom = function() {
+              var rockbottom = myGameArea.canvas.height - this.height;
+              var rightWall = myGameArea.canvas.width;
+              var leftWall = 0;
+              if (this.y > rockbottom) {
+                  this.y = rockbottom;
+              }
+              if (this.x > rightWall-15) {
+                  this.x = (rightWall-15);
+              }
+              if (this.x < leftWall) {
+                  this.x = leftWall;
+              }
+          }
+          this.crashWith = function(otherobj) {
+              var myleft = this.x;
+              var myright = this.x + (this.width);
+              var mytop = this.y;
+              var mybottom = this.y + (this.height);
+              var otherleft = otherobj.x;
+              var otherright = otherobj.x + (otherobj.width);
+              var othertop = otherobj.y;
+              var otherbottom = otherobj.y + (otherobj.height);
+              var crash = true;
+              if ((mybottom < othertop)
+              || (mytop > otherbottom)
+              || (myright < otherleft)
+              || (myleft > otherright)) {
+                  crash = false;
+              }
+              return crash;
+          }
+      }
+
+      function updateGameArea() {
+
+          for (i = 0; i < myObstacles.length; i += 1) {
+              if (myGamePiece.crashWith(myObstacles[i])) {
+                   restart();
+              }
+          }
+          for (i = 0; i < myAmmunition.length; i += 1) {
+            for (j = 0; j < myObstacles.length; j += 1) {
+                if (myObstacles[j].color !== 'black' &&
+                 myAmmunition[i].crashWith(myObstacles[j]) === true) {
+                    myObstacles[j].updateColor();
+                    score += 10;
+                }
+              }
+          }
+          myGameArea.clear();
+          myGameArea.frameNo += 1;
+
+          createEnemy();
+
+          for (i = 0; i < myObstacles.length; i += 1) {
+
+            if(myObstacles[i].y > gameWindowHigh)
+            {
+              myObstacles.splice(i, 1)
+            } else {
+              myObstacles[i].y += 1;
+              myObstacles[i].update();
+            }
+          }
+
+          for (i = 0; i < myAmmunition.length; i += 1) {
+
+              if(myAmmunition[i].y < 0)
+              {
+                myAmmunition.splice(i, 1)
+              } else {
+                myAmmunition[i].y += -1;
+                myAmmunition[i].update();
+              }
+          }
+          myScore.text="SCORE: " + score;
+          myGamePiece.newPos();
+          myScore.update();
+          myGamePiece.update();
+      }
+
+      function createEnemy(){
+        if (myGameArea.frameNo == 1 || everyinterval(100)) {
+            x = (myGameArea.canvas.width - 25)
+            xPosition = Math.floor(Math.random()*(x-0)+0);
+            myObstacles.push(new component(20+myObstacles.length, 20+myObstacles.length, "green", xPosition, 0,1));
+        }
+      }
+
+      function everyinterval(n) {
+          if ((myGameArea.frameNo / n) % 1 == 0) {return true;}
+          return false;
+      }
+
+      function shoot() {
+        if (myGameArea.frameNo - coolDown >  30)
+        {
+        coolDown = myGameArea.frameNo;
+        xPosition = (myGamePiece.x+5);
+        yPosition = (myGamePiece.y-5)
+        myAmmunition.push(new component(5, 5, "red", xPosition, yPosition, 1));
+        }
+      }
+      function save(){
+
+        myObstaclesSaved = [];
+        myAmmunitionSaved = [];
+        var test;
+
+        for (i = 0; i < myObstacles.length; i += 1) {
+            test = [myObstacles[i].width,
+            myObstacles[i].height,
+            myObstacles[i].color,
+            myObstacles[i].x,
+            myObstacles[i].y,
+            myObstacles[i].type];
+            myObstaclesSaved.push(test);
+        }
+        for (i = 0; i < myAmmunition.length; i += 1) {
+            test = [myAmmunition[i].width,
+            myAmmunition[i].height,
+            myAmmunition[i].color,
+            myAmmunition[i].x,
+            myAmmunition[i].y,
+            myAmmunition[i].type];
+            myAmmunitionSaved.push(test);
+        }
+
+        myGamePieceSaved = [myGamePiece.width,
+        myGamePiece.height,
+        myGamePiece.color,
+        myGamePiece.x,
+        myGamePiece.y,
+        myGamePiece.type];
+
+        scoreSaved = score;
+        coolDownSaved = coolDown;
+      }
+      function restart() {
+        gameOver();
+        myGamePiece = new component(15, 15, "red", 10, 600);
+        myObstacles = [];
+        myAmmunition = [];
+        score = 0;
+        coolDown = 0;
+        myGameArea.clear();
+        myGameArea.frameNo = -150;
+      }
+
+      function gameOver() {
+        var msg = {
+          "messageType": "SCORE",
+          "score": score
+        };
+        window.parent.postMessage(msg, "*");
+      }
+      function load(){
+        restart();
+        var cube, width, height, color, x, y, type
+
+        for(var i = 0; i < myObstaclesSaved.length; i++) {
+          cube = myObstaclesSaved[i];
+          width = cube[0];
+          height = cube[1];
+          color = cube[2];
+          x = cube[3];
+          y = cube[4];
+          type = cube[5];
+          myObstacles.push(new component(width, height, color, x, y, type));
+      }
+
+      for(var i = 0; i < myAmmunitionSaved.length; i++) {
+        cube = myAmmunitionSaved[i];
+        width = cube[0];
+        height = cube[1];
+        color = cube[2];
+        x = cube[3];
+        y = cube[4];
+        type = cube[5];
+        myAmmunition.push(new component(width, height, color, x, y, type));
+      }
+        score = scoreSaved;
+        coolDown = coolDownSaved;
+
+        width = myGamePieceSaved[0];
+        height = myGamePieceSaved[1];
+        color = myGamePieceSaved[2];
+        x = myGamePieceSaved[3];
+        y = myGamePieceSaved[4];
+        type = myGamePieceSaved[5];
+        myGamePiece = new component(width, height, color, x, y, type);
+
+      }
+      $(document).ready( function() {
+        "use strict";
+      $("#save").click( function () {
+        save();
+        var msg = {
+          "messageType": "SAVE",
+          "gameState": {
+          "myObstaclesSaved": myObstaclesSaved,
+          "myAmmunitionSaved": myAmmunitionSaved,
+          "myGamePieceSaved": myGamePieceSaved,
+          "coolDownSaved": coolDownSaved,
+          "scoreSaved": scoreSaved
+          }
+        };
+        window.parent.postMessage(msg, "*");
+
+        myGamePieceSaved = 0;
+        myObstaclesSaved = [];
+        myAmmunitionSaved = [];
+        scoreSaved = 0;
+      });
+
+      window.addEventListener("message", function(evt) {
+        if(evt.data.messageType === "LOAD") {
+        //  alert(JSON.stringify(evt.data.gameState.myObstaclesSaved))
+          myObstaclesSaved = evt.data.gameState.myObstaclesSaved;
+          myAmmunitionSaved = evt.data.gameState.myAmmunitionSaved;
+          myGamePieceSaved = evt.data.gameState.myGamePieceSaved;
+          scoreSaved = evt.data.gameState.scoreSaved;
+          load();
+        } else if (evt.data.messageType === "ERROR") {
+          alert(evt.data.info);
+        }
+      });
+
+      $("#load").click( function () {
+        var msg = {
+          "messageType": "LOAD_REQUEST",
+        };
+        window.parent.postMessage(msg, "*");
+      });
+
+      $(document).keydown(function(e){
+      if (e.keyCode==65)
+          myGamePiece.x += -10;
+      if (e.keyCode==68)
+          myGamePiece.x += 10;
+      if (e.keyCode==77)
+          shoot();
+      });
+    });
+   </script>
+   <body onload="startGame()">
+      <br>
+      <button id="save">SAVE</button>
+      <button id="load"> LOAD </button>
+      <button onmousedown= "restart()"> RESTART </button>
+      <p> Use a and d to move and m to shoot</p>
+   </body>
+</html>
